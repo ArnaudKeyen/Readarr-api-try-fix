@@ -1,5 +1,6 @@
+using System;
 using System.Collections.Generic;
-using NzbDrone.Common.Reflection;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Core.ThingiProvider;
 using Readarr.Http.ClientSchema;
 using Readarr.Http.REST;
@@ -26,10 +27,14 @@ namespace Readarr.Api.V1
     {
         public virtual TProviderResource ToResource(TProviderDefinition definition)
         {
+            if (definition == null)
+            {
+                throw new ArgumentNullException(nameof(definition), "Definition cannot be null");
+            }
+
             return new TProviderResource
             {
                 Id = definition.Id,
-
                 Name = definition.Name,
                 ImplementationName = definition.ImplementationName,
                 Implementation = definition.Implementation,
@@ -37,10 +42,7 @@ namespace Readarr.Api.V1
                 Message = definition.Message,
                 Tags = definition.Tags,
                 Fields = SchemaBuilder.ToSchema(definition.Settings),
-
-                //readarr/supported is an disambagation page. the # should be a header on the page with appropiate details/link
-                InfoLink = string.Format("https://wiki.servarr.com/readarr/supported#{0}",
-                    definition.Implementation.ToLower())
+                InfoLink = string.Format("https://wiki.servarr.com/readarr/supported#{0}", definition.Implementation.ToLower())
             };
         }
 
@@ -48,13 +50,17 @@ namespace Readarr.Api.V1
         {
             if (resource == null)
             {
-                return default(TProviderDefinition);
+                throw new ArgumentNullException(nameof(resource), "Resource cannot be null");
+            }
+
+            if (resource.Fields == null)
+            {
+                throw new ArgumentException("Fields cannot be null", nameof(resource.Fields));
             }
 
             var definition = new TProviderDefinition
             {
                 Id = resource.Id,
-
                 Name = resource.Name,
                 ImplementationName = resource.ImplementationName,
                 Implementation = resource.Implementation,
@@ -64,6 +70,11 @@ namespace Readarr.Api.V1
             };
 
             var configContract = ReflectionExtensions.CoreAssembly.FindTypeByName(definition.ConfigContract);
+            if (configContract == null)
+            {
+                throw new InvalidOperationException("Config contract type not found: " + definition.ConfigContract);
+            }
+
             definition.Settings = (IProviderConfig)SchemaBuilder.ReadFromSchema(resource.Fields, configContract);
 
             return definition;
